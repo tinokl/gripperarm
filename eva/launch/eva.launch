@@ -1,0 +1,5 @@
+<launch>
+  <node name="EVA_Cortex" pkg="eva" type="cortex.py"></node>
+  <node name="RA2_Hobby" pkg="eva" type="RA2-Hobby-AREXX.py"></node>
+  <node name="Hark_Location" pkg="sound_sensor" type="localization_hark.sh"></node>
+</launch>

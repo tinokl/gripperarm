@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/kl/rosw/sandbox/eva/src/eva.cpp
+ros/ros.h
+/home/kl/rosw/sandbox/eva/src/ros/ros.h
+std_msgs/String.h
+/home/kl/rosw/sandbox/eva/src/std_msgs/String.h
+
