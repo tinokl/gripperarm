@@ -2,7 +2,7 @@
 import roslib; roslib.load_manifest('eva')
 import rospy
 
-#from eva.msg import arm_vel_msg
+from eva.msg import arm_vel_msg
 from hark_msgs.msg import HarkSource
 from trajectory_msgs import JointTrajectory
 from trajectory_msgs import JointTrajectoryPoint

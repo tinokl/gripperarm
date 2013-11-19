@@ -85,11 +85,11 @@ class RA2Hobby:
 
 
   def moveCommandDirection(self, data):
+    position = 0
     if data.clockwise == 1:
       position = self.servo_pos[data.servo] + data.direction
     else:
       position = self.servo_pos[data.servo] - data.direction	
-
     if positon < 8 and positon > -8:
       rospy.loginfo(rospy.get_name() + ": Commit direction move command")
       self.servo_pos[data.servo] = position
