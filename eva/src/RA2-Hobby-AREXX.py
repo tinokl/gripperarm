@@ -39,6 +39,7 @@ import time
 from std_msgs.msg import String
 from eva.msg import arm_vel_msg
 
+wait_to_send = 1
 
 class RA2Hobby:
 
@@ -58,12 +59,16 @@ class RA2Hobby:
     # 5 joint (big one)
     # 6 base (rotation)
     # save servo positions
+    #                 1 2 3 4 5 6
     self.servo_pos = [0,0,0,0,0,0]
+    # less than these values
+    self.servo_max_pos = [3,8,5,9,9,9]
+    self.ready = False
 
     while not rospy.is_shutdown():
       if self.ser.isOpen() == 1:
         line = self.ser.readline()
-        str = "Serial Read: %s" % line
+        str = "Serial Read: %s" % line  # lint:ok
         rospy.loginfo(str)
         self.RA2_Hobby_pub.publish(String(str))
       rospy.sleep(1.0)
@@ -72,80 +77,88 @@ class RA2Hobby:
   def checkCommand(self, data):
     command = data.command
     if command == "CLOSE":
+      self.ready = False
       self.cleanup()
     elif command == "START":
       self.initSerial()
       self.normPosition()
-    elif command == "MCP":
+      self.ready = True
+    elif command == "MCP" and self.ready == True:
       if self.ser.isOpen() == 1:
         self.moveCommandPosition(data)
-    elif command == "MCD":
+    elif command == "MCD" and self.ready == True:
       if self.ser.isOpen() == 1:	
         self.moveCommandDirection(data)
 
 
   def moveCommandDirection(self, data):
-    position = 0
+    position = self.servo_pos[(data.servo-1)]
     if data.clockwise == 1:
-      position = self.servo_pos[data.servo] + data.direction
+      position = position + data.direction
     else:
-      position = self.servo_pos[data.servo] - data.direction	
-    if positon < 8 and positon > -8:
+      position = position - data.direction	
+    if abs(position) < self.servo_max_pos[(data.servo-1)]:
       rospy.loginfo(rospy.get_name() + ": Commit direction move command")
-      self.servo_pos[data.servo] = position
-      str = "#%s%s%s" % data.clockwise % data.servo % position
-      self.ser.write(str)	
+      str = "#{0}{1}{2}".format(data.clockwise, data.servo, abs(position)) # lint:ok
+      self.sendSerial(str)
     else:
       rospy.loginfo(rospy.get_name() + ": Furthest position reached")
 
 
   def moveCommandPosition(self, data):
-    if data.position < 8:
-      rospy.loginfo(rospy.get_name() + ": Commit position move command")
-      str = "#%s%s%s" % data.clockwise % data.servo % data.position
-      self.ser.write(str)
-      if data.clockwise == 1:
-        self.servo_pos[data.servo] = data.position
-      else:
-        self.servo_pos[data.servo] = (-1)*data.position		
+    if data.position < self.servo_max_pos[(data.servo-1)]:
+      if data.position != self.servo_pos[(data.servo-1)]:
+        rospy.loginfo(rospy.get_name() + ": Commit position move command")
+        str = "#{0}{1}{2}".format(data.clockwise, data.servo, data.position)  # lint:ok
+        self.sendSerial(str)
     else:
-      rospy.loginfo(rospy.get_name() + ": ERROR position our of bounds - position musst be smaller than 8")	
+      error = ": ERROR position out of bounds - position musst be smaller than {0}".format(self.servo_max_pos[(data.servo-1)])
+      rospy.loginfo(rospy.get_name() + error)
 
 
   def sleepPosition(self):
     rospy.loginfo(rospy.get_name() + ": Turn to SLEEP position")
-    self.ser.write("#062")
-    time.sleep(2)
-    self.ser.write("#055")
-    time.sleep(2)
-    self.ser.write("#046")
-    time.sleep(2)
-    self.ser.write("#134")
-    time.sleep(2)
-    self.ser.write("#012")
-    time.sleep(2)
-    self.ser.write("#000")
-    time.sleep(2)
+    self.sendSerial("#060")
+    time.sleep(wait_to_send)
+    self.sendSerial("#048")
+    time.sleep(wait_to_send)
+    self.sendSerial("#058")
+    time.sleep(wait_to_send)
+    self.sendSerial("#134")
+    time.sleep(wait_to_send)
+    self.sendSerial("#012")
+    time.sleep(wait_to_send)
+    self.sendSerial("#000")
+    time.sleep(wait_to_send)
     rospy.loginfo(rospy.get_name() + ": SLEEP position reached")
 
 
   def normPosition(self):
     rospy.loginfo(rospy.get_name() + ": Turn to NORMAL position")
-    self.ser.write("#100")
-    time.sleep(2)
-    self.ser.write("#060")
-    time.sleep(2)
-    self.ser.write("#048")
-    time.sleep(2)
-    self.ser.write("#057")
-    time.sleep(2)
-    self.ser.write("#132")
-    time.sleep(2)
-    self.ser.write("#122")
-    time.sleep(2)
-    self.ser.write("#012")
-    time.sleep(2)
+    self.sendSerial("#100")
+    time.sleep(wait_to_send)
+    self.sendSerial("#060")
+    time.sleep(wait_to_send)
+    self.sendSerial("#048")
+    time.sleep(wait_to_send)
+    self.sendSerial("#058")
+    time.sleep(wait_to_send)
+    self.sendSerial("#132")
+    time.sleep(wait_to_send)
+    self.sendSerial("#122")
+    time.sleep(wait_to_send)
+    self.sendSerial("#012")
+    time.sleep(wait_to_send)
     rospy.loginfo(rospy.get_name() + ": NORMAL position reached")
+
+
+  def sendSerial(self, string):
+    self.ser.write(string)
+    if string != '#000' or string != '#100':
+      if string[1] == '0':
+        self.servo_pos[int(string[2])-1] = (-1) * int(string[3])
+      else:
+        self.servo_pos[int(string[2])-1] = int(string[3])
 
 
   def initSerial(self):
